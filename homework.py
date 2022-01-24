@@ -2,19 +2,17 @@ import logging
 import os
 import time
 from http import HTTPStatus
+from json.decoder import JSONDecodeError
 
 import requests
 import telegram
+from telegram import TelegramError
 from dotenv import load_dotenv
 
-# from pickle import NONE
-# from telegram import Bot
 
 load_dotenv()
 logging.basicConfig(
     level=logging.DEBUG,
-    # filename='main.log',
-    # filemode='w',
     format='%(asctime)s, %(levelname)s, %(message)s, %(name)s'
 )
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
@@ -33,18 +31,28 @@ logger = logging.getLogger(__name__)
 
 def send_message(bot, message):
     """Отправка сообщения об ошибке в лог и в Телеграмм."""
-    bot.send_message(TELEGRAM_CHAT_ID, message)
-    logger.info('Успешная отправка сообщения.')
+    try:
+        bot.send_message(TELEGRAM_CHAT_ID, message)
+        logger.info('Успешная отправка сообщения.')
+    except TelegramError:
+        logger.critical('Ошибка отправки сообщения')
 
 
 def get_api_answer(current_timestamp):
     """Запрос к APIПрактикум."""
     timestamp = current_timestamp or int(time.time())
     params = {'from_date': timestamp}
-    response = requests.get(url=ENDPOINT, headers=HEADERS, params=params)
+    try:
+        response = requests.get(url=ENDPOINT, headers=HEADERS, params=params)
+    except requests.exceptions.RequestException as e:
+        logger.critical(e)
+        raise SystemExit(e)
     if response.status_code == HTTPStatus.OK:
         logger.info('успешное получение Эндпоинта')
-        return response.json()
+        try:
+            return response.json()
+        except JSONDecodeError:
+            print('Запрос не преобразуется в JSON')
     elif response.status_code == HTTPStatus.REQUEST_TIMEOUT:
         raise SystemError(f'Ошибка код {response.status_code}')
     elif response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR:
@@ -56,10 +64,16 @@ def get_api_answer(current_timestamp):
 
 def check_response(response):
     """Проверка содержимого ответа."""
-    if type(response) == dict:
-        response['current_date']
-        homeworks = response['homeworks']
-        if type(homeworks) == list:
+    if type(response) is dict:
+        if 'current_date' in response:
+            response['current_date']
+            if 'homeworks' in response:
+                homeworks = response['homeworks']
+            else:
+                raise SystemError('Нет ключа homeworks')
+        else:
+            raise SystemError('Нет ключа current_date')
+        if type(homeworks) is list:
             return homeworks
         else:
             raise SystemError('Тип ключа не list')
@@ -115,8 +129,6 @@ def main():
             message = f'Сбой в работе программы: {error}'
             send_message(bot, message)
             time.sleep(RETRY_TIME)
-        else:
-            ...
 
 
 if __name__ == '__main__':
