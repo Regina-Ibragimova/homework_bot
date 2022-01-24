@@ -32,11 +32,13 @@ logger = logging.getLogger(__name__)
 
 
 def send_message(bot, message):
+    """Отправка сообщения об ошибке в лог и в Телеграмм."""
     bot.send_message(TELEGRAM_CHAT_ID, message)
     logger.info('Успешная отправка сообщения.')
 
 
 def get_api_answer(current_timestamp):
+    """Запрос к APIПрактикум."""
     timestamp = current_timestamp or int(time.time())
     params = {'from_date': timestamp}
     response = requests.get(url=ENDPOINT, headers=HEADERS, params=params)
@@ -53,6 +55,7 @@ def get_api_answer(current_timestamp):
 
 
 def check_response(response):
+    """Проверка содержимого ответа."""
     if type(response) == dict:
         response['current_date']
         homeworks = response['homeworks']
@@ -65,7 +68,7 @@ def check_response(response):
 
 
 def parse_status(homework):
-    # print(homework)
+    """Праверка ключей в ответе."""
     homework_name = homework.get('homework_name')
     homework_status = homework.get('status')
 
@@ -81,6 +84,7 @@ def parse_status(homework):
 
 
 def check_tokens():
+    """Праверка обязательных переменных окружения."""
     if PRACTICUM_TOKEN and TELEGRAM_TOKEN and TELEGRAM_CHAT_ID:
         return True
     else:
