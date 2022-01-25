@@ -35,7 +35,7 @@ def send_message(bot, message):
         bot.send_message(TELEGRAM_CHAT_ID, message)
         logger.info('Успешная отправка сообщения.')
     except TelegramError:
-        logger.critical('Ошибка отправки сообщения')
+        logger.error('Ошибка отправки сообщения')
 
 
 def get_api_answer(current_timestamp):
@@ -45,14 +45,14 @@ def get_api_answer(current_timestamp):
     try:
         response = requests.get(url=ENDPOINT, headers=HEADERS, params=params)
     except requests.exceptions.RequestException as e:
-        logger.critical(e)
+        logger.error(e)
         raise SystemExit(e)
     if response.status_code == HTTPStatus.OK:
         logger.info('успешное получение Эндпоинта')
         try:
             return response.json()
         except JSONDecodeError:
-            print('Запрос не преобразуется в JSON')
+            logger.error('Запрос не преобразуется в JSON')
     elif response.status_code == HTTPStatus.REQUEST_TIMEOUT:
         raise SystemError(f'Ошибка код {response.status_code}')
     elif response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR:
@@ -64,21 +64,17 @@ def get_api_answer(current_timestamp):
 
 def check_response(response):
     """Проверка содержимого ответа."""
-    if type(response) is dict:
-        if 'current_date' in response:
-            response['current_date']
-            if 'homeworks' in response:
-                homeworks = response['homeworks']
-            else:
-                raise SystemError('Нет ключа homeworks')
-        else:
-            raise SystemError('Нет ключа current_date')
-        if type(homeworks) is list:
-            return homeworks
-        else:
-            raise SystemError('Тип ключа не list')
-    else:
+    if type(response) is not dict:
         raise TypeError('Ответ не словарь')
+
+    if 'homeworks' not in response or 'current_date' not in response:
+        raise SystemError('Нет ключа homeworks или current_date')
+
+    homeworks = response['homeworks']
+    if type(homeworks) is not list:
+        raise SystemError('Тип ключа homeworks не list')
+    else:
+        return homeworks
 
 
 def parse_status(homework):
